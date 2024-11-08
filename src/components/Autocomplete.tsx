@@ -14,6 +14,7 @@ const Autocomplete: React.FC<Props> = React.memo(
     const [query, setQuery] = useState('');
     const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
     const [debounceQuery, setdebounceQuery] = useState(query);
+    const [isFocused, setFocus] = useState(false);
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       setQuery(event.target.value);
@@ -26,16 +27,32 @@ const Autocomplete: React.FC<Props> = React.memo(
       return () => clearTimeout(handler);
     }, [query, debounceDelay]);
 
-    const filterePeople = useMemo(() => {
+    const filteredPeople = useMemo(() => {
+      if (!debounceQuery.trim()) {
+        return isFocused ? people : [];
+      }
+
       return people.filter(p =>
         p.name.toLocaleLowerCase().includes(debounceQuery.toLocaleLowerCase()),
       );
-    }, [debounceQuery, people]);
+    }, [debounceQuery, people, isFocused]);
 
     const handlePersonSelect = (person: Person) => {
       setSelectedPerson(person);
       setQuery(person.name);
       onSelected(person);
+    };
+
+    const handleFocus = () => {
+      setFocus(true);
+
+      if (!query.trim()) {
+        setdebounceQuery('');
+      }
+    };
+
+    const handleBlur = () => {
+      setFocus(false);
     };
 
     useEffect(() => {
@@ -60,13 +77,16 @@ const Autocomplete: React.FC<Props> = React.memo(
               className="input"
               value={query}
               onChange={handleChange}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               data-cy="search-input"
             />
           </div>
 
           <div
             className={classNames('dropdown', {
-              'is-active': selectedPerson === null,
+              'is-active':
+                isFocused && (!selectedPerson || filteredPeople.length > 0),
             })}
           >
             <div
@@ -75,8 +95,8 @@ const Autocomplete: React.FC<Props> = React.memo(
               data-cy="suggestions-list"
             >
               <div className="dropdown-content">
-                {filterePeople.length > 0 ? (
-                  filterePeople.map(person => (
+                {filteredPeople.length > 0 &&
+                  filteredPeople.map(person => (
                     <div
                       className="dropdown-item"
                       data-cy="suggestion-item"
@@ -85,16 +105,16 @@ const Autocomplete: React.FC<Props> = React.memo(
                     >
                       <p className="has-text-link">{person.name}</p>
                     </div>
-                  ))
-                ) : (
+                  ))}
+                {debounceQuery.trim() && filteredPeople.length === 0 && (
                   <div
                     className="
-                      notification
-                      is-danger
-                      is-light
-                      mt-3
-                      is-align-self-flex-start
-                    "
+                        notification
+                        is-danger
+                        is-light
+                        mt-3
+                        is-align-self-flex-start
+                      "
                     role="alert"
                     data-cy="no-suggestions-message"
                   >
